@@ -39,3 +39,24 @@ public static class SaveSystem
     }
 
 }
+
+[System.Serializable]
+public class DictionaryData
+{
+    public int scorePoints;
+    public int currentLineNumber;
+    public int seconds;
+    public int minutes;
+    public int hours;
+    public int nonResetedSeconds;
+
+
+    public DictionaryData(WordDictionaryManager playerDat)
+    {
+        currentLineNumber = playerDat.currentLineNumber;
+        seconds = playerDat.seconds;
+        minutes = playerDat.minutes;
+        hours = playerDat.hours;
+        nonResetedSeconds = playerDat.nonResetedSeconds;
+    }
+}

@@ -1,58 +1,41 @@
 ﻿using System.Collections;
-using System.Collections.Generic;
 using UnityEngine;
-using System.IO;
-using System.Linq;
 using UnityEngine.UI;
+using System.IO;
+using System.Threading.Tasks;
 
 public class WordDictionaryManager : MonoBehaviour
 {
+    private Timer timer;
+
+
     [Header("Selected Dictionary")]
-    public TextAsset dictionnaire;
     public Text currentLetter;
+    private string[] storedDictionnary;
+    private bool dictionnaryLoaded;
+
 
     [Header("Setup Texts")]
     public InputField inputField;
     public InputField currentInputFieldText;
 
-    public Text scoreText;
-    [HideInInspector]public int scorePoints;
-
     public Text wordLevelText;
-    private int wordLevel;
-
-    public Text wordPerMinutesText;
-    private double wordPerMinutes;
 
     [Header("Text to display")]
     public Text previousPreviousText;
-    private string[] previousPreviousLines;
-
     public Text previousText;
-    private string[] previousLines;
 
     public Text currentText;
     [HideInInspector]public int currentLineNumber;
-    private string[] currentLines;
 
     public Text nextText;
-    private string[] nextLines;
-
     public Text nextNextText;
-    private string[] nextNextLines;
 
-    [Header("Bonus")]
-    public AudioClip sardFormule1;
-    public AudioClip sardParfait;
-
-    //Cache variables
-    private AudioSource cameraAudioSource;
+    [Header("Go to line")]
+    public InputField goToLineInput;
 
     private double time;
-
     private bool isSame = false;
-    [HideInInspector] public bool formule1Played = false;
-    [HideInInspector] public bool parfaitPlayed = false;
     private bool hasUpdated;
 
     [HideInInspector] public int seconds;
@@ -60,52 +43,35 @@ public class WordDictionaryManager : MonoBehaviour
     [HideInInspector] public int hours;
     [HideInInspector] public int nonResetedSeconds;
 
-    private Timer timer;
 
-    public void SavePlayer()
+    public void SavePlayer() => SaveSystem.SavePlayer(this);
+
+    private void Start()
     {
-        SaveSystem.SavePlayer(this);
-    }
-
-    public void LoadPlayer()
-    {
-        DictionaryData data = SaveSystem.LoadPlayer();
-
-        currentLineNumber = data.currentLineNumber;
-        scorePoints = data.scorePoints;
-        seconds = data.seconds;
-        minutes = data.minutes;
-        hours = data.hours;
-        nonResetedSeconds = data.nonResetedSeconds;
-        formule1Played = data.formule1Played;
-        parfaitPlayed = data.parfaitPlayed;
-    }
-
-    void Start()
-    {
-        LoadPlayer();
-
+        dictionnaryLoaded = false;
         timer = GetComponent<Timer>();
-        cameraAudioSource = GameObject.FindGameObjectWithTag("MainCamera").GetComponent<AudioSource>();
-
         inputField.ActivateInputField();
-
-        if(dictionnaire)
-        {
-            previousPreviousLines = (dictionnaire.text.Split('\n'));
-            previousLines = (dictionnaire.text.Split('\n'));
-            currentLines = (dictionnaire.text.Split('\n'));
-            nextLines = (dictionnaire.text.Split('\n'));
-            nextNextLines = (dictionnaire.text.Split('\n'));
-        }
     }
 
-    void Update()
+    static async Task<string[]> ReadTextFileInBackgroundThread(string filePath)
     {
+        //Load large file on different thread to prevent a freeze
+        return await Task.Run(() => { return File.ReadAllLines(filePath); });
+    }
+
+    async public void StartGame(string selectedDictionnaryPath)
+    {
+        storedDictionnary = await ReadTextFileInBackgroundThread(selectedDictionnaryPath);
+        dictionnaryLoaded = true;
+    }
+
+    private void Update()
+    {
+        if (!dictionnaryLoaded) return;
+
         SavePlayer();
 
         CheckTextInput();
-        UpdateScoreUI();
         UpdateWordLevelUI();
         UpdateCurrentLetterUI();
 
@@ -114,67 +80,35 @@ public class WordDictionaryManager : MonoBehaviour
         hours = timer.hours;
         nonResetedSeconds = timer.nonResetedSeconds;
 
-        if(currentLineNumber < 0)
-        {
-            currentLineNumber = 0;
-        }
-
         time = timer.nonResetedSeconds;
-
-        if(wordLevel != 0 && time >= 0)
-        {
-            wordPerMinutes = wordLevel / (time / 60);
-            wordPerMinutes = (int)wordPerMinutes;
-        }
-
-        wordPerMinutesText.text = wordPerMinutes + " : WPM";
-
-        if(currentLineNumber >= 50 && !formule1Played)
-        {
-            cameraAudioSource.PlayOneShot(sardFormule1, 0.1f);
-            formule1Played = true;
-        }
-
-        if(currentLineNumber >= 100 && !parfaitPlayed)
-        {
-            cameraAudioSource.PlayOneShot(sardParfait, 0.1f);
-            parfaitPlayed = true;
-        }
 
         //--------------------------[     All rendered texts     ]-------------------------------------
 
         if(currentLineNumber > 1)
-        {
-            string previousPrevious = previousPreviousLines[currentLineNumber - 2];
-            previousPreviousText.text = previousPrevious.ToLower();
-        }
+            previousPreviousText.text = storedDictionnary[currentLineNumber - 2];
         else
-        {
             previousPreviousText.text = "";
-        }
-
-        if(currentLineNumber > 0)
-        {
-            string previous = previousLines[currentLineNumber - 1];
-            previousText.text = previous.ToLower();
-        }
+        if (currentLineNumber > 0)
+            previousText.text = storedDictionnary[currentLineNumber - 1];
         else
-        {
             previousText.text = "";
-        }
 
-        string current = currentLines[currentLineNumber];
-        currentText.text = current.ToLower();
+        currentText.text = storedDictionnary[currentLineNumber];
 
-        string next = nextLines[currentLineNumber + 1];
-        nextText.text = next.ToLower();
+        if (currentLineNumber == storedDictionnary.Length - 1)
+            nextText.text = "";
+        else
+            nextText.text = storedDictionnary[currentLineNumber + 1];
 
-        string nextNext = nextNextLines[currentLineNumber + 2];
-        nextNextText.text = nextNext.ToLower();
+        if (currentLineNumber == storedDictionnary.Length - 2)
+            nextNextText.text = "";
+        else
+            nextNextText.text = storedDictionnary[currentLineNumber + 2];
 
         //------------------------------------------------------------------------------------------------
 
-        if(isSame && !hasUpdated)
+        //Check
+        if (isSame && !hasUpdated)
         {
             currentInputFieldText.GetComponent<Image>().color = Color.green;
 
@@ -182,8 +116,6 @@ public class WordDictionaryManager : MonoBehaviour
 
             BlankField(inputField);
 
-            wordLevel++;
-            scorePoints += 10;
             hasUpdated = true;
         }
         else
@@ -193,40 +125,44 @@ public class WordDictionaryManager : MonoBehaviour
         }
     }
 
-    void UpdateCurrentLetterUI()
+    private void UpdateCurrentLetterUI()
     {
-        string letter;
-        letter = currentText.text.Substring(0, 1);
-
-        currentLetter.text = letter.ToUpper();
-    }   
-
-    void CheckTextInput()
-    {
-        if(inputField.text.Trim() == currentText.text.Trim().ToLower())
-        {
-            isSame = true;
-        }
-        else
-        {
-            isSame = false;
-        }
+        //Format the first letter of the current word to uppercase
+        currentLetter.text = currentText.text.Substring(0, 1).ToUpper();
     }
 
-    void BlankField(InputField input)
+    private void CheckTextInput()
+    {
+        if(inputField.text.Trim() == currentText.text.Trim().ToLower())
+            isSame = true;
+        else
+            isSame = false;
+    }
+
+    private void BlankField(InputField input)
     {
         input.Select();
         input.text = "";
     }
 
-    void UpdateScoreUI()
+    private void UpdateWordLevelUI()
     {
-        scoreText.text = "Score : " + scorePoints;
+        wordLevelText.text = $"{currentLineNumber } / {storedDictionnary.Length}";
     }
 
-    void UpdateWordLevelUI()
+    public void OnClick_SetCurrentWord()
     {
-        wordLevelText.text = currentLineNumber + " / 22739";
-    }
+        int value = 0;
 
+        if (goToLineInput.text != "")
+        {
+           value = int.Parse(goToLineInput.text);
+        }
+
+
+        if (value > storedDictionnary.Length) return;
+
+        currentLineNumber = value - 1;
+        goToLineInput.text = "";
+    }
 }

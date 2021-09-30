@@ -24,9 +24,10 @@ public class Timer : MonoBehaviour
     {
         hasPassed = true;
 
-        seconds = this.GetComponent<WordDictionaryManager>().seconds;
-        minutes = this.GetComponent<WordDictionaryManager>().minutes;
-        hours = this.GetComponent<WordDictionaryManager>().hours;
+        WordDictionaryManager wordDictionaryManager = GetComponent<WordDictionaryManager>();
+        seconds = wordDictionaryManager.seconds;
+        minutes = wordDictionaryManager.minutes;
+        hours = wordDictionaryManager.hours;
     }
 
     void Update()
